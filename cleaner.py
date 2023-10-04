@@ -30,18 +30,19 @@ def get_speakers(lines, pattern):
     return speakers_selection
 
 if __name__ == "__main__":
-    for filename in sys.argv[1:]:
-        print("Processing file", filename)
+    for file in sys.argv[1:]:
+        print("Processing file", file)
+        filename, extension = file.split('.')
 
-        if filename[-4:] != ".txt":
-            print("Error: this file (%s) is not a txt file"%filename)
+        if extension != "txt":
+            print("Error: this file (%s) is not a txt file"%file)
             print()
             continue
 
         pattern = re.compile("^([0-9]+)\s+(.+)$")
 
-        with open(filename.replace(".txt", "_cleaned.txt"), "w") as output_file:
-            with open(filename, "r") as input_file:
+        with open(filename + "_cleaned.tmp", "w") as output_file:
+            with open(file, "r") as input_file:
                 data = input_file.read()
                 lines = data.split('\n')
 
@@ -64,12 +65,12 @@ if __name__ == "__main__":
                                 beginning = False
                         else:
                             if line_number != counter:
-                                print("Warning: line number (%i) doest not correspond with line count (%i) ; file line = %i"%(line_number, counter, i))
+                                print("INFO : line number (%i) does not correspond with line count (%i) ; file line = %i"%(line_number, counter, i))
                                 counter = line_number
-
+    
                         # detect the end of the transcription
-                        if "----------" in line and "FIN DE L’ENREGISTREMENT" in lines[i+2]:
-                            break
+                        #if "----------" in line and "FIN DE L’ENREGISTREMENT" in lines[i+2]:
+                        #    break
 
                         content = match.group(2)
 
@@ -77,10 +78,58 @@ if __name__ == "__main__":
                             output_file.write("\n" + content + " ")
                         else:
                             output_file.write(content + " ")
-                        
+
                         counter += 1
 
                         if counter == 26:
                             counter = 1
 
+        # once we created one big cleaned file, we divide it into smaller chunks, each corresponding to a different audio file
+        with open(filename + "_cleaned.tmp") as big_file:
+            data = big_file.read()
+            lines = data.split('\n')
+
+            if lines[0].strip() == "OUVERTURE DE L’AUDIENCE":
+                del lines[0]
+                print("OK : removing first line")
+            else:
+                print("WARNING : first line not found")
+
+            count_output_files = 1
+            output_file = open(filename + "_cleaned_%i.txt"%count_output_files, "w")
+            speakers_in_file = set()
+
+            for line in lines:
+                # sanity check
+                assert " : " in line
+                speakers_in_file.add(line.split(' : ')[0])
+
+                if "--" in line:
+                    if "SUSPENSION" in line or "REPRISE" in line:
+                        # sanity checks
+                        assert "SUSPENSION ---------- REPRISE" in line
+                        s = line.split("SUSPENSION ---------- REPRISE")
+                        assert len(s) == 2 and len(s[1].strip()) == 0
+
+                        output_file.write(s[0])
+                        output_file.close() # we change of file
+                        print("Found %i speakers in this file:"%len(speakers_in_file), speakers_in_file)
+                        speakers_in_file = set()
+                        print("Changing file!")
+
+                        count_output_files += 1
+                        output_file = open(filename + "_cleaned_%i.txt" % count_output_files, "w")
+                    else:
+                        # sanity check
+                        assert line.count("----------") >= 2
+
+                        # this case occurs when extra information was included in the original transcription
+                        # we discard the extra information
+                        output_file.write(line.split("----------")[0] + '\n')
+                else:
+                    output_file.write(line + '\n')
+
+
+            output_file.close()
+            print("Found %i speakers in this file:" % len(speakers_in_file), speakers_in_file)
         print("Processing: DONE")
