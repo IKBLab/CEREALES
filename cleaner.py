@@ -67,10 +67,6 @@ if __name__ == "__main__":
                             if line_number != counter:
                                 print("INFO : line number (%i) does not correspond with line count (%i) ; file line = %i"%(line_number, counter, i))
                                 counter = line_number
-    
-                        # detect the end of the transcription
-                        #if "----------" in line and "FIN DE L’ENREGISTREMENT" in lines[i+2]:
-                        #    break
 
                         content = match.group(2)
 
@@ -96,7 +92,7 @@ if __name__ == "__main__":
                 print("WARNING : first line not found")
 
             count_output_files = 1
-            output_file = open(filename + "_cleaned_%i.txt"%count_output_files, "w")
+            output_file = open(filename + "_cleaned_%i.tmp"%count_output_files, "w")
             speakers_in_file = set()
 
             for line in lines:
@@ -118,18 +114,48 @@ if __name__ == "__main__":
                         print("Changing file!")
 
                         count_output_files += 1
-                        output_file = open(filename + "_cleaned_%i.txt" % count_output_files, "w")
+                        output_file = open(filename + "_cleaned_%i.tmp" % count_output_files, "w")
                     else:
                         # sanity check
-                        assert line.count("----------") >= 2
+                        dashes_count = line.count("----------")
+                        assert dashes_count >= 2
+
+                        splits = line.split("----------")
 
                         # this case occurs when extra information was included in the original transcription
-                        # we discard the extra information
-                        output_file.write(line.split("----------")[0] + '\n')
+
+                        if "FIN DE L’ENREGISTREMENT" in line:
+                            # we discard the extra information
+                            output_file.write(splits[0] + '\n')
+                        else:
+                            output_file.write(splits[0] + '\n')
+
+                            # we add the missing information ("affirmation solennelle")
+                            for i in range(dashes_count-1):
+                                witness = ' '.join(splits[i+1].split()[:2])
+                                output_file.write("LA GREFFIÈRE-AUDIENCIÈRE : Vous affirmez solennellement de dire la vérité. Dites je l'affirme.\n")
+                                output_file.write("%s : Je l'affirme.\n"%(witness.upper()))
+                                output_file.write("LA GREFFIÈRE-AUDIENCIÈRE : Et votre nom?\n")
+                                output_file.write("%s : %s.\n" % (witness.upper(), witness))
+                                output_file.write("LA GREFFIÈRE-AUDIENCIÈRE : Merci.\n")
+
                 else:
                     output_file.write(line + '\n')
 
 
             output_file.close()
             print("Found %i speakers in this file:" % len(speakers_in_file), speakers_in_file)
+
+        # finally, we process each chunk individually to further clean the transcript
+        # we also divide fragments into sentences, so it is easier to process by the forced alignment tool
+        for i in range(1, count_output_files+1):
+            with open(filename + "_cleaned_%i.tmp"%i, "r") as tmp_output_file:
+                with open(filename + "_cleaned_%i.txt"%i, "w") as output_file:
+                    data = tmp_output_file.read()
+                    data = re.sub("\([a-zA-Z0-9\. %-]+\)", "", data) # remove parenthesis
+                    data = re.sub("^[\w -]+ : ", "", data, flags=re.MULTILINE) # remove speakers names
+                    data = re.sub("[ ]{3,}", "\n", data)
+
+                    output_file.write(data)
+
         print("Processing: DONE")

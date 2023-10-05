@@ -1,0 +1,15 @@
+I'm currently using this tool:
+
+https://github.com/readbeyond/aeneas
+
+After installing, run:
+
+python3 -m aeneas.tools.execute_task ~/Commission_Viens_Dataset/dataset/audio_1.wav ~/Commission_Viens_Dataset/dataset/extra_clean_transcription_1.txt "task_language=fra|os_task_file_format=json|is_text_type=plain" ~/Commission_Viens_Dataset/dataset/audio_1.json
+
+This will create a JSON file containing the forced alignment in a few seconds.
+
+To generate the segments, run:
+
+python generate_segments_from_json.py dataset/audio_1.json
+
+This will create a directory containing the audio segments.

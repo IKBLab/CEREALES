@@ -14,7 +14,7 @@ if __name__ == "__main__":
             print()
             continue
 
-        rate, audiodata = wavfile.read("dataset/audio_1" + ".wav")
+        rate, audiodata = wavfile.read(filename + ".wav")
         assert rate == 16000
 
         os.makedirs("./%s_segments_aeneas"%filename, exist_ok=True)
